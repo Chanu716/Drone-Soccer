@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#12150E"></rect><circle cx="70" cy="100" r="35" fill="none" stroke="#FF2E63" stroke-width="4"></circle><circle cx="130" cy="100" r="35" fill="none" stroke="#2E7BFF" stroke-width="4"></circle><text x="100" y="170" text-anchor="middle" fill="#EDEFE6" font-family="sans-serif" font-size="16">DS</text></svg></template>
+  <style>
+    :root{ --bg:#12150E; --elevated:#1C2016; --text:#EDEFE6; --muted:#8A9078; --border:rgba(237,239,230,0.10); --white:#EDEFE6; --blue:#2E7BFF; --red:#FF2E63; --accent:#FFB020; --ease:cubic-bezier(0.22,1,0.36,1); }
+    body{margin:0; background:var(--bg); font-family:'Barlow',sans-serif;}
+    a{color:var(--white); text-decoration:none;}
+    a:hover{opacity:0.7;}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:8px; font-weight:500; font-size:16px; padding:12px 24px; cursor:pointer; border:none; transition:transform 0.3s var(--ease), opacity 0.3s var(--ease); font-family:'Barlow';}
+    .btn:hover{transform:translateY(-1px); opacity:0.85;}
+    .btn-primary{background:var(--white); color:var(--bg); box-shadow:0 8px 24px rgba(255,255,255,0.18);}
+    .card{background:var(--elevated); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.45);}
+    .data{font-variant-numeric:tabular-nums;}
+    .h1,.h2{font-family:'Barlow Condensed',sans-serif; font-weight:900; text-transform:uppercase; letter-spacing:-0.01em; line-height:0.95;}
+    .tag{display:inline-block; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); border:1px solid var(--border); border-radius:8px; padding:6px 12px;}
+    @keyframes cineUp{from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:none;}}
+    .cine{opacity:0; animation:cineUp 0.7s var(--ease) forwards;}
+  </style>
+</helmet>
+
+<div style="min-height:100vh; color:var(--text);">
+  <nav style="position:fixed; top:16px; left:16px; right:16px; z-index:900; display:flex; align-items:center; justify-content:space-between; padding:14px 28px; background:rgba(28,32,22,0.72); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:999px;">
+    <a href="./Homepage.dc.html" style="display:flex; align-items:center; gap:12px; font-family:'Barlow Condensed'; font-weight:900; text-transform:uppercase; font-size:18px; letter-spacing:0.04em;">Drone Soccer <span style="color:var(--muted); font-weight:500;">/ SRM AP</span></a>
+    <div style="display:flex; align-items:center; gap:28px;">
+      <a href="./Homepage.dc.html#rules" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Rules</a>
+      <a href="./Standings.dc.html" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Standings</a>
+      <a href="./TeamDetails.dc.html" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Teams</a>
+      <button class="btn btn-primary" style="border-radius:999px;" onclick="location.href='./Registration.dc.html'">Register your team</button>
+    </div>
+  </nav>
+
+  <main style="max-width:1180px; margin:0 auto; padding:160px 48px 120px;">
+    <div class="cine" style="text-align:center; margin-bottom:40px;">
+      <span class="tag">Match schedule</span>
+      <h1 class="h1" style="font-size:clamp(36px,6vw,60px); margin:16px 0 12px;">Fixtures</h1>
+      <p style="color:var(--muted); max-width:56ch; margin:0 auto;">Sep 1 – Dec 31, every Wednesday and Thursday, rotating across four venues. Matchups fill in once team registration closes.</p>
+    </div>
+
+    <sc-for list="{{ months }}" as="m" hint-placeholder-count="4">
+      <div class="cine" style="margin:48px 0 16px;"><span class="tag">{{ m.month }}</span></div>
+      <div class="card">
+        <sc-for list="{{ m.items }}" as="slot" hint-placeholder-count="8">
+          <div style="display:grid; grid-template-columns:130px 1fr 1fr auto; gap:16px; align-items:center; padding:18px 32px; border-bottom:1px solid var(--border);">
+            <div class="data" style="color:var(--muted); font-size:13px;">{{ slot.date }}</div>
+            <div style="font-weight:600;">TBD <span style="color:var(--muted); font-weight:400;">vs</span> TBD</div>
+            <div style="color:var(--muted); font-size:14px;">{{ slot.venue }} · {{ slot.time }}</div>
+            <span class="tag">Open</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </main>
+
+  <footer style="max-width:1521px; margin:0 auto; padding:24px 48px 80px; border-top:1px solid var(--border); text-align:center; color:var(--muted); font-size:13px;">Drone Soccer SRM AP · A student league at SRM University, Andhra Pradesh.</footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  buildFixtures() {
+    const venues = ['C V Raman Block', 'SR Block', 'X Lab', 'Admin Block'];
+    const start = new Date(2026, 8, 1);
+    const end = new Date(2026, 11, 31);
+    const slots = [];
+    let vi = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const day = d.getDay();
+      if (day === 3 || day === 4) {
+        slots.push({
+          date: d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }),
+          monthKey: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+          time: '4:00 PM – 6:00 PM',
+          venue: venues[vi % venues.length]
+        });
+        vi++;
+      }
+    }
+    return slots;
+  }
+
+  groupByMonth(slots) {
+    const map = new Map();
+    slots.forEach(s => { if (!map.has(s.monthKey)) map.set(s.monthKey, []); map.get(s.monthKey).push(s); });
+    return Array.from(map.entries()).map(([month, items]) => ({ month, items }));
+  }
+
+  renderVals() {
+    return { months: this.groupByMonth(this.buildFixtures()) };
+  }
+}
+
+</script>
+</body>
+</html>
