@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#12150E"></rect><circle cx="70" cy="100" r="35" fill="none" stroke="#FF2E63" stroke-width="4"></circle><circle cx="130" cy="100" r="35" fill="none" stroke="#2E7BFF" stroke-width="4"></circle><text x="100" y="170" text-anchor="middle" fill="#EDEFE6" font-family="sans-serif" font-size="16">DS</text></svg></template>
+  <style>
+    :root{ --bg:#12150E; --elevated:#1C2016; --text:#EDEFE6; --muted:#8A9078; --border:rgba(237,239,230,0.10); --white:#EDEFE6; --blue:#2E7BFF; --red:#FF2E63; --accent:#FFB020; --ease:cubic-bezier(0.22,1,0.36,1); }
+    body{margin:0; background:var(--bg); font-family:'Barlow',sans-serif;}
+    a{color:var(--white); text-decoration:none;}
+    a:hover{opacity:0.7;}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:8px; font-weight:500; font-size:16px; padding:12px 24px; cursor:pointer; border:none; transition:transform 0.3s var(--ease), opacity 0.3s var(--ease); white-space:nowrap; font-family:'Barlow';}
+    .btn:hover{transform:translateY(-1px); opacity:0.85;}
+    .btn:disabled{opacity:0.35; cursor:not-allowed; transform:none;}
+    .btn:focus-visible{outline:2px solid var(--white); outline-offset:4px;}
+    .btn-primary{background:var(--white); color:var(--bg); box-shadow:0 8px 24px rgba(255,255,255,0.18);}
+    .btn-secondary{background:transparent; color:var(--text); border:1px solid var(--border);}
+    .card{background:var(--elevated); border:1px solid var(--border); border-radius:14px; padding:40px; box-shadow:0 20px 50px rgba(0,0,0,0.45);}
+    .data{font-variant-numeric:tabular-nums;}
+    .h1,.h2{font-family:'Barlow Condensed',sans-serif; font-weight:900; text-transform:uppercase; letter-spacing:-0.01em; line-height:0.95;}
+    .h3{font-family:'Barlow Condensed',sans-serif; font-weight:500; font-size:26px; line-height:1.1;}
+    .tag{display:inline-block; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); border:1px solid var(--border); border-radius:8px; padding:6px 12px;}
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px;}
+    input[type=text],input[type=email],input[type=tel]{width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; color:var(--text); font-family:'Barlow'; font-size:15px; box-sizing:border-box;}
+    input:focus-visible{outline:2px solid var(--white); outline-offset:2px;}
+    .field{margin-bottom:20px;}
+    @keyframes cineUp{from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:none;}}
+    .cine{opacity:0; animation:cineUp 0.7s var(--ease) forwards;}
+  </style>
+</helmet>
+
+<div style="min-height:100vh; color:var(--text);">
+  <nav style="position:fixed; top:16px; left:16px; right:16px; z-index:900; display:flex; align-items:center; justify-content:space-between; padding:14px 28px; background:rgba(28,32,22,0.72); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:999px;">
+    <a href="./Homepage.dc.html" style="display:flex; align-items:center; gap:12px; font-family:'Barlow Condensed'; font-weight:900; text-transform:uppercase; font-size:18px; letter-spacing:0.04em;">Drone Soccer <span style="color:var(--muted); font-weight:500;">/ SRM AP</span></a>
+    <div style="display:flex; align-items:center; gap:28px;">
+      <a href="./Homepage.dc.html#rules" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Rules</a>
+      <a href="./Fixtures.dc.html" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Fixtures</a>
+      <a href="./Standings.dc.html" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Standings</a>
+      <a href="./TeamDetails.dc.html" style="font-family:'Barlow Condensed'; text-transform:uppercase; font-size:13px; letter-spacing:0.08em;">Teams</a>
+    </div>
+  </nav>
+
+  <main style="max-width:840px; margin:0 auto; padding:160px 48px 120px;">
+    <div class="cine" style="text-align:center; margin-bottom:56px;">
+      <span class="tag">Team registration</span>
+      <h1 class="h1" style="font-size:clamp(36px,6vw,60px); margin:16px 0 12px;">Register your team</h1>
+      <p style="color:var(--muted); max-width:56ch; margin:0 auto;">₹100 per team for the league. 3 to 5 pilots per team. Add training access for ₹100 more — a weekly recharge, active only for that week.</p>
+    </div>
+
+    <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}">
+    <div class="card cine">
+      <div class="field">
+        <label>Team name</label>
+        <input type="text" value="{{ teamName }}" onChange="{{ setTeamName }}" placeholder="e.g. Falcon Squadron">
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div class="field"><label>Captain name</label><input type="text" value="{{ captainName }}" onChange="{{ setCaptainName }}" placeholder="Full name"></div>
+        <div class="field"><label>Captain phone</label><input type="tel" value="{{ captainPhone }}" onChange="{{ setCaptainPhone }}" placeholder="10-digit number"></div>
+      </div>
+      <div class="field"><label>Captain email</label><input type="email" value="{{ captainEmail }}" onChange="{{ setCaptainEmail }}" placeholder="name@srmap.edu.in"></div>
+
+      <div style="margin:32px 0 16px; display:flex; align-items:baseline; justify-content:space-between;">
+        <div class="h3" style="margin:0;">Pilots</div>
+        <span class="data" style="color:var(--muted); font-size:13px;">{{ pilotCount }} / 5</span>
+      </div>
+      <sc-for list="{{ pilots }}" as="pilot" hint-placeholder-count="3">
+        <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end; margin-bottom:16px;">
+          <div class="field" style="margin-bottom:0;"><label>Pilot {{ pilot.idx }} name</label><input type="text" value="{{ pilot.name }}" onChange="{{ pilot.setName }}" placeholder="Full name"></div>
+          <div class="field" style="margin-bottom:0;"><label>Role</label><input type="text" value="{{ pilot.role }}" onChange="{{ pilot.setRole }}" placeholder="Striker / Defender"></div>
+          <button class="btn btn-secondary" onClick="{{ pilot.remove }}" disabled="{{ pilot.removeDisabled }}" style="padding:12px 16px;">Remove</button>
+        </div>
+      </sc-for>
+      <button class="btn btn-secondary" onClick="{{ addPilot }}" disabled="{{ addDisabled }}" style="margin-bottom:8px;">+ Add pilot</button>
+
+      <div style="margin:32px 0 0; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-weight:600;">Training access</div>
+          <div style="color:var(--muted); font-size:14px;">+₹100 this week</div>
+        </div>
+        <button class="btn" onClick="{{ toggleTraining }}" style="background:{{ trainingBg }}; color:{{ trainingColor }}; border:1px solid var(--border);">{{ trainingLabel }}</button>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; padding:20px 0 8px; color:var(--muted);"><span>League registration</span><span class="data">₹100</span></div>
+      <sc-if value="{{ training }}"><div style="display:flex; justify-content:space-between; padding:0 0 8px; color:var(--muted);"><span>Training add-on</span><span class="data">₹100</span></div></sc-if>
+      <div style="display:flex; justify-content:space-between; padding:12px 0; border-top:1px solid var(--border); font-weight:700; font-size:18px;"><span>Total</span><span class="data">₹{{ total }}</span></div>
+
+      <sc-if value="{{ error }}"><p style="color:var(--red); font-size:14px; margin:16px 0 0;">{{ error }}</p></sc-if>
+      <button class="btn btn-primary" onClick="{{ submit }}" style="width:100%; padding:16px; font-size:17px; margin-top:24px;">Submit registration</button>
+      <p style="color:var(--muted); font-size:12px; text-align:center; margin:16px 0 0;">Payment is collected after your slot is confirmed — instructions go to the captain's email.</p>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ submitted }}">
+    <div class="card cine" style="text-align:center; padding:64px 48px;">
+      <div style="width:56px; height:56px; border-radius:50%; border:2px solid var(--white); display:flex; align-items:center; justify-content:center; margin:0 auto 24px; font-size:24px;">✓</div>
+      <h2 class="h2" style="font-size:32px; margin:0 0 12px;">Registration received</h2>
+      <p style="color:var(--muted); max-width:48ch; margin:0 auto 24px;">{{ teamName }} is on the list. Payment instructions and slot confirmation will be emailed to {{ captainEmail }} once organisers review the entry.</p>
+      <button class="btn btn-secondary" onClick="{{ reset }}">Register another team</button>
+    </div>
+    </sc-if>
+  </main>
+
+  <footer style="max-width:1521px; margin:0 auto; padding:24px 48px 80px; border-top:1px solid var(--border); text-align:center; color:var(--muted); font-size:13px;">Drone Soccer SRM AP · A student league at SRM University, Andhra Pradesh.</footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    teamName: '', captainName: '', captainPhone: '', captainEmail: '',
+    pilots: [{ name: '', role: '' }, { name: '', role: '' }, { name: '', role: '' }],
+    training: false, submitted: false, error: ''
+  };
+
+  setTeamName = (e) => this.setState({ teamName: e.target.value });
+  setCaptainName = (e) => this.setState({ captainName: e.target.value });
+  setCaptainPhone = (e) => this.setState({ captainPhone: e.target.value });
+  setCaptainEmail = (e) => this.setState({ captainEmail: e.target.value });
+  toggleTraining = () => this.setState(s => ({ training: !s.training }));
+
+  addPilot = () => this.setState(s => s.pilots.length >= 5 ? s : ({ pilots: [...s.pilots, { name: '', role: '' }] }));
+  removePilot = (idx) => this.setState(s => s.pilots.length <= 3 ? s : ({ pilots: s.pilots.filter((_, i) => i !== idx) }));
+  setPilotName = (idx, e) => this.setState(s => ({ pilots: s.pilots.map((p, i) => i === idx ? { ...p, name: e.target.value } : p) }));
+  setPilotRole = (idx, e) => this.setState(s => ({ pilots: s.pilots.map((p, i) => i === idx ? { ...p, role: e.target.value } : p) }));
+
+  submit = () => {
+    const { teamName, captainName, captainEmail, pilots } = this.state;
+    if (!teamName.trim() || !captainName.trim() || !captainEmail.trim()) {
+      this.setState({ error: 'Fill in team name and captain details.' }); return;
+    }
+    if (pilots.some(p => !p.name.trim())) {
+      this.setState({ error: 'Every pilot needs a name.' }); return;
+    }
+    this.setState({ error: '', submitted: true });
+  };
+
+  reset = () => this.setState({
+    teamName: '', captainName: '', captainPhone: '', captainEmail: '',
+    pilots: [{ name: '', role: '' }, { name: '', role: '' }, { name: '', role: '' }],
+    training: false, submitted: false, error: ''
+  });
+
+  renderVals() {
+    const { pilots, training, submitted } = this.state;
+    return {
+      ...this.state,
+      showForm: !submitted,
+      pilotCount: pilots.length,
+      addDisabled: pilots.length >= 5,
+      pilots: pilots.map((p, i) => ({
+        idx: i + 1, name: p.name, role: p.role,
+        setName: (e) => this.setPilotName(i, e), setRole: (e) => this.setPilotRole(i, e),
+        remove: () => this.removePilot(i), removeDisabled: pilots.length <= 3
+      })),
+      trainingLabel: training ? 'Added' : 'Add training',
+      trainingBg: training ? 'var(--white)' : 'transparent',
+      trainingColor: training ? 'var(--bg)' : 'var(--text)',
+      total: 100 + (training ? 100 : 0),
+      addPilot: this.addPilot, toggleTraining: this.toggleTraining, submit: this.submit, reset: this.reset,
+      setTeamName: this.setTeamName, setCaptainName: this.setCaptainName, setCaptainPhone: this.setCaptainPhone, setCaptainEmail: this.setCaptainEmail
+    };
+  }
+}
+
+</script>
+</body>
+</html>
