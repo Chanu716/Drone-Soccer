@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #12150E;
+  --surface: #12150E;
+  --elevated: #1C2016;
+  --text: #EDEFE6;
+  --muted: #8A9078;
+  --border: rgba(237, 239, 230, 0.10);
+  --white: #EDEFE6;
+  --blue: #2E7BFF;
+  --red: #FF2E63;
+  --accent: #FFB020;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), sans-serif;
+  scroll-behavior: smooth;
+}
+
+a {
+  color: var(--white);
+  text-decoration: none;
+  transition: opacity 0.2s var(--ease);
+}
+
+a:hover {
+  opacity: 0.7;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 16px;
+  padding: 12px 24px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.3s var(--ease), opacity 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: var(--font-body), sans-serif;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.85;
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 6px;
+}
+
+.btn-primary {
+  background: var(--white);
+  color: var(--bg);
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.18);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 12px 34px rgba(255, 255, 255, 0.32);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: rgba(237, 239, 230, 0.3);
+}
+
+.card {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  transition: transform 0.5s var(--ease), box-shadow 0.5s var(--ease), border-color 0.5s var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.data {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-body), monospace;
+}
+
+.h1, .h2 {
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+.h3 {
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.h4 {
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: var(--font-body), sans-serif;
+  font-size: 15px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, outline 0.2s;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 2px;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+@keyframes cineUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cine {
+  display: inline-block;
+  opacity: 0;
+  animation: cineUp 0.8s var(--ease) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes idleBob {
+  0%, 100% {
+    margin-top: 0;
+  }
+  50% {
+    margin-top: -8px;
+  }
+}
+
+@keyframes goalAFlash {
+  0%, 44%, 100% {
+    box-shadow: 0 0 34px rgba(46, 123, 255, 0.65), inset 0 0 22px rgba(46, 123, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 64px rgba(46, 123, 255, 1), inset 0 0 40px rgba(46, 123, 255, 0.6);
+  }
+  56% {
+    box-shadow: 0 0 34px rgba(46, 123, 255, 0.65), inset 0 0 22px rgba(46, 123, 255, 0.3);
+  }
+}
+
+@keyframes goalBFlash {
+  0%, 44%, 100% {
+    box-shadow: 0 0 34px rgba(255, 46, 99, 0.6), inset 0 0 22px rgba(255, 46, 99, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 64px rgba(255, 46, 99, 1), inset 0 0 40px rgba(255, 46, 99, 0.55);
+  }
+  56% {
+    box-shadow: 0 0 34px rgba(255, 46, 99, 0.6), inset 0 0 22px rgba(255, 46, 99, 0.28);
+  }
+}
