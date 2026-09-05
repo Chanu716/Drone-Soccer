@@ -51,7 +51,9 @@ export interface Database {
           captain_phone: string | null;
           captain_id: string | null;
           training_addon: boolean;
-          status: "pending" | "approved" | "rejected";
+          status: "pending" | "approved" | "rejected" | "cancelled";
+          admin_notes?: string | null;
+          rejection_reason?: string | null;
           created_at: string;
         };
         Insert: {
@@ -65,7 +67,9 @@ export interface Database {
           captain_phone?: string | null;
           captain_id?: string | null;
           training_addon?: boolean;
-          status?: "pending" | "approved" | "rejected";
+          status?: "pending" | "approved" | "rejected" | "cancelled";
+          admin_notes?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["teams"]["Insert"]>;
@@ -156,12 +160,18 @@ export interface Database {
           valid_week: number | null;
           amount_paise: number;
           currency: string;
-          method: "razorpay" | "venue_upi" | "cash" | null;
+          method: "upi" | "razorpay" | "venue_upi" | "cash" | "bank_transfer" | "other" | null;
+          transaction_id?: string | null;
           razorpay_order_id: string | null;
           razorpay_payment_id: string | null;
           razorpay_signature: string | null;
-          status: "created" | "paid" | "failed" | "refunded";
+          status: "created" | "pending" | "verification_required" | "paid" | "failed" | "refunded";
+          proof_url?: string | null;
+          admin_notes?: string | null;
+          rejection_reason?: string | null;
           paid_at: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
           recorded_by: string | null;
           created_at: string;
         };
@@ -173,12 +183,18 @@ export interface Database {
           valid_week?: number | null;
           amount_paise?: number;
           currency?: string;
-          method?: "razorpay" | "venue_upi" | "cash" | null;
+          method?: "upi" | "razorpay" | "venue_upi" | "cash" | "bank_transfer" | "other" | null;
+          transaction_id?: string | null;
           razorpay_order_id?: string | null;
           razorpay_payment_id?: string | null;
           razorpay_signature?: string | null;
-          status?: "created" | "paid" | "failed" | "refunded";
+          status?: "created" | "pending" | "verification_required" | "paid" | "failed" | "refunded";
+          proof_url?: string | null;
+          admin_notes?: string | null;
+          rejection_reason?: string | null;
           paid_at?: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
           recorded_by?: string | null;
           created_at?: string;
         };
@@ -215,6 +231,30 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["matches"]["Insert"]>;
+        Relationships: [];
+      };
+      admin_audit_logs: {
+        Row: {
+          id: string;
+          action: string;
+          actor_label: string;
+          target_type: string;
+          target_id: string;
+          target_label: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          action: string;
+          actor_label?: string;
+          target_type: string;
+          target_id: string;
+          target_label?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_audit_logs"]["Insert"]>;
         Relationships: [];
       };
     };

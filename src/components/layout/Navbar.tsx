@@ -118,6 +118,22 @@ export function Navbar() {
             Teams
           </Link>
           <Link
+            href="/admin/registrations"
+            style={{
+              fontFamily: "var(--font-heading)",
+              textTransform: "uppercase",
+              fontSize: 13,
+              letterSpacing: "0.08em",
+              color: pathname?.startsWith("/admin") ? "var(--accent)" : "var(--muted)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: pathname?.startsWith("/admin") ? "var(--accent)" : "var(--muted)" }} />
+            Admin
+          </Link>
+          <Link
             href="/register"
             className="btn btn-primary"
             style={{ borderRadius: 999, textDecoration: "none" }}
@@ -207,6 +223,19 @@ export function Navbar() {
             }}
           >
             Teams
+          </Link>
+          <Link
+            href="/admin/registrations"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontFamily: "var(--font-heading)",
+              textTransform: "uppercase",
+              fontSize: 15,
+              letterSpacing: "0.08em",
+              color: "var(--accent)",
+            }}
+          >
+            Admin (Registrations & Payments)
           </Link>
           <Link
             href="/register"
