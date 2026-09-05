@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ShieldCheck, Zap, ArrowRight, Loader2, CreditCard, RefreshCw } from "lucide-react";
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import {
+  CheckCircle2,
+  Zap,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  QrCode,
+  Copy,
+  Check,
+  CreditCard,
+  Sparkles,
+} from "lucide-react";
 
 export default function RegisterPage() {
+  const [step, setStep] = useState<"form" | "payment">("form");
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
@@ -21,40 +27,30 @@ export default function RegisterPage() {
     { name: "", role: "Defender" },
   ]);
   const [training, setTraining] = useState(false);
+  const [transactionId, setTransactionId] = useState("");
+  const [copiedUpi, setCopiedUpi] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-  
-  // Razorpay Checkout & verification details
-  const [verifiedDetails, setVerifiedDetails] = useState<{
+
+  const [confirmedData, setConfirmedData] = useState<{
     teamName: string;
     captainEmail: string;
-    paymentId: string;
-    orderId: string;
+    transactionId: string;
     amount: number;
-    approvedAt: string;
+    teamId?: string;
   } | null>(null);
 
-  // Simulated modal for test gateway mode
-  const [simulatingModal, setSimulatingModal] = useState<{
-    orderId: string;
-    teamId: string;
-    amount: number;
-  } | null>(null);
-
-  useEffect(() => {
-    // Load official Razorpay Checkout SDK dynamically
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
+  const total = 100 + (training ? 100 : 0);
+  const upiId = "srmap.dronesoccer@upi";
+  const payeeName = "Drone Soccer SRM AP";
+  const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${total}&cu=INR&tn=${encodeURIComponent(
+    `DroneSoccer-${teamName || "Team"}`
+  )}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data=${encodeURIComponent(
+    upiUrl
+  )}`;
 
   const addPilot = () => {
     if (pilots.length < 5) {
@@ -76,54 +72,29 @@ export default function RegisterPage() {
     setPilots(pilots.map((p, i) => (i === idx ? { ...p, role: val } : p)));
   };
 
-  const total = 100 + (training ? 100 : 0);
-
-  // Complete verification handler
-  const completeVerification = async (payload: {
-    orderId: string;
-    paymentId: string;
-    signature: string;
-    teamId: string;
-    amount: number;
-  }) => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/payments/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Payment verification failed.");
-      }
-
-      setVerifiedDetails({
-        teamName,
-        captainEmail,
-        paymentId: payload.paymentId,
-        orderId: payload.orderId,
-        amount: payload.amount,
-        approvedAt: new Date().toLocaleTimeString(),
-      });
-      setSimulatingModal(null);
-      setSubmitted(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Verification error occurred";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2500);
   };
 
-  const handleSubmit = async () => {
+  const handleProceedToPayment = () => {
     if (!teamName.trim() || !captainName.trim() || !captainEmail.trim()) {
-      setError("Please fill in team name and captain details.");
+      setError("Please enter team name, captain name, and captain email.");
       return;
     }
     if (pilots.some((p) => !p.name.trim())) {
-      setError("Every pilot needs a valid name.");
+      setError("Every pilot in the roster must have a valid name.");
+      return;
+    }
+    setError("");
+    setStep("payment");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!transactionId.trim()) {
+      setError("Please enter your 12-digit UPI Reference / UTR Number after completing payment.");
       return;
     }
 
@@ -131,109 +102,44 @@ export default function RegisterPage() {
       setLoading(true);
       setError("");
 
-      // 1. Create order on backend (computes fee server-side, saves team in Supabase)
-      const res = await fetch("/api/payments/create-order", {
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teamName,
-          captainName,
-          captainPhone,
-          captainEmail,
+          teamName: teamName.trim(),
+          captainName: captainName.trim(),
+          captainPhone: captainPhone.trim(),
+          captainEmail: captainEmail.trim(),
           pilots,
           training,
+          transactionId: transactionId.trim().toUpperCase(),
         }),
       });
 
-      const orderData = await res.json();
+      const data = await res.json();
       if (!res.ok) {
-        throw new Error(orderData.error || "Failed to initialize payment.");
+        throw new Error(data.error || "Failed to complete registration.");
       }
 
-      // 2. Check if live Razorpay SDK is available and live credentials are set
-      const isLiveRazorpay =
-        typeof window !== "undefined" &&
-        window.Razorpay &&
-        orderData.keyId &&
-        !orderData.isSimulated &&
-        orderData.keyId.startsWith("rzp_");
-
-      if (isLiveRazorpay) {
-        const options = {
-          key: orderData.keyId,
-          amount: orderData.amount,
-          currency: orderData.currency || "INR",
-          name: "Drone Soccer League · SRM AP",
-          description: `Team Registration Fee · ${teamName}`,
-          image: "https://placehold.co/128x128/12150E/c8ff00?text=DS",
-          order_id: orderData.orderId,
-          prefill: {
-            name: captainName,
-            email: captainEmail,
-            contact: captainPhone || "",
-          },
-          theme: {
-            color: "#c8ff00",
-          },
-          modal: {
-            ondismiss: () => {
-              setLoading(false);
-              setError("Payment was cancelled. You can retry whenever you're ready.");
-            },
-          },
-          handler: async (response: {
-            razorpay_payment_id: string;
-            razorpay_order_id: string;
-            razorpay_signature: string;
-          }) => {
-            await completeVerification({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-              teamId: orderData.teamId,
-              amount: total,
-            });
-          },
-        };
-
-        const rzp = new window.Razorpay(options);
-        rzp.on("payment.failed", (response: any) => {
-          setError(response?.error?.description || "Payment failed at Razorpay.");
-          setLoading(false);
-        });
-        rzp.open();
-        setLoading(false);
-      } else {
-        // Fallback / Simulator Mode for local dev without live keys
-        setLoading(false);
-        setSimulatingModal({
-          orderId: orderData.orderId,
-          teamId: orderData.teamId,
-          amount: total,
-        });
-      }
+      setConfirmedData({
+        teamName,
+        captainEmail,
+        transactionId: data.transactionId || transactionId.trim().toUpperCase(),
+        amount: total,
+        teamId: data.team?.id,
+      });
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Registration failed.";
+      const msg = err instanceof Error ? err.message : "Registration submission failed.";
       setError(msg);
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleSimulatedPay = async () => {
-    if (!simulatingModal) return;
-    const simPaymentId = `pay_sim_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-    const simSignature = `sig_sim_${Date.now()}`;
-
-    await completeVerification({
-      orderId: simulatingModal.orderId,
-      paymentId: simPaymentId,
-      signature: simSignature,
-      teamId: simulatingModal.teamId,
-      amount: simulatingModal.amount,
-    });
-  };
-
   const handleReset = () => {
+    setStep("form");
     setTeamName("");
     setCaptainName("");
     setCaptainPhone("");
@@ -244,31 +150,129 @@ export default function RegisterPage() {
       { name: "", role: "Defender" },
     ]);
     setTraining(false);
+    setTransactionId("");
     setSubmitted(false);
-    setVerifiedDetails(null);
-    setSimulatingModal(null);
+    setConfirmedData(null);
     setError("");
   };
 
   return (
     <div style={{ minHeight: "100vh", color: "var(--text)" }}>
-      <main style={{ maxWidth: 840, margin: "0 auto", padding: "160px 48px 120px" }}>
-        <div className="cine" style={{ textAlign: "center", marginBottom: 56 }}>
-          <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Zap size={14} color="#c8ff00" /> Automated Registration & Payment
+      <main style={{ maxWidth: 840, margin: "0 auto", padding: "140px 32px 100px" }}>
+        {/* Header */}
+        <div className="cine" style={{ textAlign: "center", marginBottom: 44 }}>
+          <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+            <Zap size={14} color="#c8ff00" /> Drone Soccer League · Registration
           </span>
-          <h1 className="h1" style={{ fontSize: "clamp(36px,6vw,60px)", margin: "16px 0 12px" }}>
+          <h1 className="h1" style={{ fontSize: "clamp(32px,5.5vw,56px)", margin: "8px 0 12px" }}>
             Register your team
           </h1>
-          <p style={{ color: "var(--muted)", maxWidth: "56ch", margin: "0 auto" }}>
-            ₹100 per team. 3 to 5 pilots per roster. Secure payment via Razorpay with instant cryptographic verification and automatic registration acceptance.
+          <p style={{ color: "var(--muted)", maxWidth: "56ch", margin: "0 auto", fontSize: 15 }}>
+            ₹100 entry fee per team. 3 to 5 pilots per roster. Scan the QR code to pay with any UPI app; registrations are automatically confirmed upon submission.
           </p>
         </div>
 
-        {!submitted ? (
+        {/* Success Screen */}
+        {submitted && confirmedData ? (
+          <div className="card cine" style={{ textAlign: "center", padding: "52px 36px" }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                border: "2px solid #c8ff00",
+                background: "rgba(200, 255, 0, 0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 20px",
+                color: "#c8ff00",
+              }}
+            >
+              <CheckCircle2 size={36} />
+            </div>
+
+            <div
+              className="tag"
+              style={{
+                background: "rgba(200, 255, 0, 0.15)",
+                color: "#c8ff00",
+                border: "1px solid #c8ff00",
+                marginBottom: 12,
+              }}
+            >
+              Payment Recorded · Confirmed
+            </div>
+
+            <h2 className="h2" style={{ fontSize: 34, margin: "0 0 10px" }}>
+              Registration Successful!
+            </h2>
+            <p style={{ color: "var(--muted)", maxWidth: "50ch", margin: "0 auto 28px", fontSize: 15 }}>
+              Your team <strong style={{ color: "var(--text)" }}>{confirmedData.teamName}</strong> has been successfully registered and approved into the league.
+            </p>
+
+            {/* Receipt Summary Card */}
+            <div
+              style={{
+                maxWidth: 480,
+                margin: "0 auto 32px",
+                padding: "20px 24px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid var(--border)",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>Status</span>
+                <span style={{ color: "#c8ff00", fontWeight: 700 }}>Confirmed ✓</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>Payment Method</span>
+                <span>UPI QR</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>UPI Reference / UTR</span>
+                <span className="data" style={{ fontWeight: 700, color: "var(--text)" }}>
+                  {confirmedData.transactionId}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>Amount Paid</span>
+                <span className="data" style={{ color: "#c8ff00", fontWeight: 700 }}>
+                  ₹{confirmedData.amount}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>Captain Email</span>
+                <span>{confirmedData.captainEmail}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+              <Link
+                href="/teams"
+                className="btn btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                View Registered Teams <ArrowRight size={16} />
+              </Link>
+              <button type="button" className="btn btn-secondary" onClick={handleReset}>
+                Register Another Team
+              </button>
+            </div>
+          </div>
+        ) : step === "form" ? (
+          /* STEP 1: Team & Pilot Form */
           <div className="card cine">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "#c8ff00", fontWeight: 700 }}>
+                Step 1 of 2: Team Roster
+              </div>
+              <span className="tag" style={{ fontSize: 12 }}>Base Fee: ₹100</span>
+            </div>
+
             <div className="field">
-              <label>Team name</label>
+              <label>Team Name *</label>
               <input
                 type="text"
                 value={teamName}
@@ -278,9 +282,9 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
               <div className="field">
-                <label>Captain name</label>
+                <label>Captain Name *</label>
                 <input
                   type="text"
                   value={captainName}
@@ -290,19 +294,19 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="field">
-                <label>Captain phone</label>
+                <label>Captain Phone (WhatsApp)</label>
                 <input
                   type="tel"
                   value={captainPhone}
                   onChange={(e) => setCaptainPhone(e.target.value)}
-                  placeholder="10-digit number"
+                  placeholder="10-digit mobile number"
                   disabled={loading}
                 />
               </div>
             </div>
 
             <div className="field">
-              <label>Captain email</label>
+              <label>Captain Email *</label>
               <input
                 type="email"
                 value={captainEmail}
@@ -312,11 +316,20 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div style={{ margin: "32px 0 16px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-              <div className="h3" style={{ margin: 0, fontSize: 26 }}>Active Pilots</div>
-              <span className="data" style={{ color: "var(--muted)", fontSize: 13 }}>
-                {pilots.length} / 5 pilots
-              </span>
+            <div
+              style={{
+                margin: "32px 0 16px",
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <div className="h3" style={{ margin: 0, fontSize: 22 }}>
+                Pilots ({pilots.length} / 5)
+              </div>
+              <span style={{ color: "var(--muted)", fontSize: 12 }}>3 to 5 pilots required</span>
             </div>
 
             {pilots.map((pilot, i) => (
@@ -327,16 +340,16 @@ export default function RegisterPage() {
                   gridTemplateColumns: "1fr 1fr auto",
                   gap: 12,
                   alignItems: "end",
-                  marginBottom: 16,
+                  marginBottom: 14,
                 }}
               >
                 <div className="field" style={{ marginBottom: 0 }}>
-                  <label>Pilot {i + 1} name</label>
+                  <label>Pilot {i + 1} Name *</label>
                   <input
                     type="text"
                     value={pilot.name}
                     onChange={(e) => setPilotName(i, e.target.value)}
-                    placeholder="Full name"
+                    placeholder="Pilot full name"
                     disabled={loading}
                   />
                 </div>
@@ -377,24 +390,30 @@ export default function RegisterPage() {
               className="btn btn-secondary"
               onClick={addPilot}
               disabled={pilots.length >= 5 || loading}
-              style={{ marginBottom: 8 }}
+              style={{ marginBottom: 20 }}
             >
-              + Add pilot
+              + Add Pilot (Max 5)
             </button>
 
+            {/* Training Add-on */}
             <div
               style={{
-                margin: "32px 0 0",
-                paddingTop: 24,
-                borderTop: "1px solid var(--border)",
+                margin: "24px 0 0",
+                padding: 20,
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid var(--border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 16,
               }}
             >
               <div>
-                <div style={{ fontWeight: 600 }}>Training access</div>
-                <div style={{ color: "var(--muted)", fontSize: 14 }}>+₹100 this week (arena flight practice)</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>Arena Training Access</div>
+                <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                  +₹100 weekly high-bay practice slots & coaching
+                </div>
               </div>
               <button
                 type="button"
@@ -406,41 +425,42 @@ export default function RegisterPage() {
                   color: training ? "#000" : "var(--text)",
                   border: training ? "1px solid #c8ff00" : "1px solid var(--border)",
                   fontWeight: training ? 700 : 500,
+                  padding: "8px 16px",
                 }}
               >
-                {training ? "✓ Training Included" : "+ Add training"}
+                {training ? "✓ Training Included (+₹100)" : "+ Add Training (+₹100)"}
               </button>
             </div>
 
-            {/* Price Breakdown */}
-            <div style={{ margin: "24px 0 16px", background: "rgba(255,255,255,0.02)", padding: 20, border: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "0 0 8px", color: "var(--muted)" }}>
-                <span>League Team Registration</span>
-                <span className="data">₹100</span>
-              </div>
-              {training && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "0 0 8px", color: "var(--muted)" }}>
-                  <span>Weekly Arena Training Access</span>
-                  <span className="data">₹100</span>
-                </div>
-              )}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "12px 0 0",
-                  borderTop: "1px solid var(--border)",
-                  fontWeight: 700,
-                  fontSize: 18,
-                }}
-              >
-                <span>Total Amount</span>
-                <span className="data" style={{ color: "#c8ff00" }}>₹{total}</span>
-              </div>
+            {/* Price Total */}
+            <div
+              style={{
+                margin: "24px 0 20px",
+                padding: 16,
+                background: "rgba(200,255,0,0.04)",
+                border: "1px solid rgba(200,255,0,0.2)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ fontWeight: 600, fontSize: 16 }}>Payable Amount</span>
+              <span className="data" style={{ color: "#c8ff00", fontSize: 24, fontWeight: 900 }}>
+                ₹{total}
+              </span>
             </div>
 
             {error && (
-              <div style={{ padding: "12px 16px", background: "rgba(255,77,77,0.1)", border: "1px solid rgba(255,77,77,0.3)", color: "#ff6b6b", fontSize: 14, marginBottom: 16 }}>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  background: "rgba(255,77,77,0.1)",
+                  border: "1px solid rgba(255,77,77,0.3)",
+                  color: "#ff6b6b",
+                  fontSize: 14,
+                  marginBottom: 16,
+                }}
+              >
                 {error}
               </div>
             )}
@@ -448,195 +468,204 @@ export default function RegisterPage() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={loading}
+              onClick={handleProceedToPayment}
               style={{
                 width: "100%",
                 padding: 16,
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: 700,
                 background: "#c8ff00",
                 color: "#000",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 10,
+                gap: 8,
               }}
             >
-              {loading ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Connecting to Razorpay...
-                </>
-              ) : (
-                <>
-                  <CreditCard size={20} />
-                  Pay ₹{total} & Register Team
-                </>
-              )}
+              Proceed to QR Payment (₹{total}) <ArrowRight size={18} />
             </button>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, color: "var(--muted)", fontSize: 12 }}>
-              <ShieldCheck size={16} color="#c8ff00" />
-              <span>Automated Razorpay verification — No manual UTR entry needed. Instant approval!</span>
-            </div>
           </div>
         ) : (
-          /* Success Screen */
-          <div className="card cine" style={{ textAlign: "center", padding: "56px 40px" }}>
+          /* STEP 2: QR Payment Screen */
+          <div className="card cine">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep("form")}
+                disabled={loading}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "8px 14px" }}
+              >
+                <ArrowLeft size={14} /> Back to Roster
+              </button>
+              <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "#c8ff00", fontWeight: 700 }}>
+                Step 2 of 2: Scan & Pay
+              </div>
+            </div>
+
+            {/* Payment instructions */}
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <div className="tag" style={{ background: "rgba(200,255,0,0.1)", color: "#c8ff00", border: "1px solid #c8ff00", marginBottom: 10 }}>
+                <QrCode size={13} style={{ display: "inline", marginRight: 4 }} /> UPI QR Payment
+              </div>
+              <h2 className="h2" style={{ fontSize: 28, margin: "0 0 6px" }}>
+                Scan to Pay ₹{total}
+              </h2>
+              <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
+                Pay using Google Pay, PhonePe, Paytm, or any UPI app.
+              </p>
+            </div>
+
+            {/* QR Code Card */}
             <div
               style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                border: "2px solid #c8ff00",
-                background: "rgba(200, 255, 0, 0.1)",
+                background: "#fff",
+                borderRadius: 8,
+                padding: 24,
+                width: "fit-content",
+                margin: "0 auto 24px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrCodeUrl}
+                alt="UPI Payment QR Code"
+                width={240}
+                height={240}
+                style={{ display: "block", borderRadius: 4 }}
+              />
+              <div style={{ color: "#000", fontWeight: 800, fontSize: 18, marginTop: 12, textAlign: "center" }}>
+                ₹{total}
+              </div>
+              <div style={{ color: "#555", fontSize: 12, marginTop: 2, textAlign: "center" }}>
+                {payeeName}
+              </div>
+            </div>
+
+            {/* UPI ID Copy Block */}
+            <div
+              style={{
+                maxWidth: 440,
+                margin: "0 auto 28px",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid var(--border)",
+                padding: "12px 18px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 24px",
-                color: "#c8ff00",
+                justifyContent: "space-between",
+                gap: 12,
               }}
             >
-              <CheckCircle2 size={36} />
-            </div>
-
-            <div className="tag" style={{ background: "rgba(200, 255, 0, 0.15)", color: "#c8ff00", border: "1px solid #c8ff00", marginBottom: 12 }}>
-              Auto-Verified · Approved
-            </div>
-
-            <h2 className="h2" style={{ fontSize: 36, margin: "0 0 12px" }}>
-              Registration & Payment Confirmed!
-            </h2>
-            <p style={{ color: "var(--muted)", maxWidth: "52ch", margin: "0 auto 24px" }}>
-              Your team <strong style={{ color: "var(--text)" }}>{verifiedDetails?.teamName}</strong> has been automatically reviewed and accepted into the Drone Soccer League.
-            </p>
-
-            {/* Receipt Summary Card */}
-            <div
-              style={{
-                maxWidth: 480,
-                margin: "0 auto 32px",
-                padding: "20px 24px",
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid var(--border)",
-                textAlign: "left",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: "var(--muted)" }}>Payment Status</span>
-                <span style={{ color: "#c8ff00", fontWeight: 700 }}>Auto-Verified (Captured)</span>
+              <div>
+                <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>UPI ID</div>
+                <div className="data" style={{ fontSize: 14, fontWeight: 700 }}>{upiId}</div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: "var(--muted)" }}>Razorpay Payment ID</span>
-                <span className="data" style={{ fontSize: 12 }}>{verifiedDetails?.paymentId}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: "var(--muted)" }}>Order Reference</span>
-                <span className="data" style={{ fontSize: 12 }}>{verifiedDetails?.orderId}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: "var(--muted)" }}>Amount Paid</span>
-                <span className="data" style={{ fontWeight: 700 }}>₹{verifiedDetails?.amount}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                <span style={{ color: "var(--muted)" }}>Captain Email</span>
-                <span>{verifiedDetails?.captainEmail}</span>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/teams" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                View All Teams <ArrowRight size={16} />
-              </Link>
-              <button className="btn btn-secondary" onClick={handleReset}>
-                Register Another Team
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCopyUpi}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "6px 12px" }}
+              >
+                {copiedUpi ? <Check size={14} color="#c8ff00" /> : <Copy size={14} />}
+                {copiedUpi ? "Copied" : "Copy"}
               </button>
             </div>
-          </div>
-        )}
 
-        {/* Razorpay Test Gateway Simulator Modal */}
-        {simulatingModal && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.85)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-              padding: 24,
-            }}
-          >
+            {/* Instructions */}
             <div
-              className="card cine"
               style={{
-                maxWidth: 460,
-                width: "100%",
-                background: "#161914",
-                border: "1px solid #c8ff00",
-                padding: 32,
+                maxWidth: 520,
+                margin: "0 auto 28px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid var(--border)",
+                padding: 16,
+                fontSize: 13,
+                color: "var(--muted)",
+                lineHeight: 1.6,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <CreditCard size={24} color="#c8ff00" />
-                <h3 className="h3" style={{ margin: 0, fontSize: 22 }}>Razorpay Gateway</h3>
-              </div>
-              <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 20 }}>
-                Development Gateway mode is active. Choose your preferred test method to verify payment signature and trigger immediate backend team approval:
-              </p>
+              <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>Instructions:</div>
+              <div>1. Scan the QR code with your UPI app and pay <strong>₹{total}</strong>.</div>
+              <div>2. Once the payment succeeds, locate the <strong>12-digit UPI Reference / UTR Number</strong> in your payment receipt.</div>
+              <div>3. Enter the reference number below to complete your team registration.</div>
+            </div>
 
-              <div style={{ background: "rgba(255,255,255,0.03)", padding: 16, border: "1px solid var(--border)", marginBottom: 24 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ color: "var(--muted)" }}>Order ID:</span>
-                  <span className="data" style={{ fontSize: 13 }}>{simulatingModal.orderId}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--muted)" }}>Amount Due:</span>
-                  <span className="data" style={{ color: "#c8ff00", fontWeight: 700 }}>₹{simulatingModal.amount}</span>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleSimulatedPay}
+            {/* Transaction ID / UTR Input */}
+            <div style={{ maxWidth: 520, margin: "0 auto 20px" }}>
+              <div className="field">
+                <label style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+                  UPI Reference / UTR / Transaction ID *
+                </label>
+                <input
+                  type="text"
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  placeholder="e.g. 425188291034"
                   disabled={loading}
                   style={{
-                    background: "#c8ff00",
-                    color: "#000",
-                    fontWeight: 700,
-                    padding: 14,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
+                    fontSize: 16,
+                    letterSpacing: "0.05em",
+                    borderColor: transactionId.trim() ? "#c8ff00" : "var(--border)",
                   }}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> Verifying Signature...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={18} /> Simulate Successful Payment (UPI / Card)
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setSimulatingModal(null)}
-                  disabled={loading}
-                  style={{ padding: 12 }}
-                >
-                  Cancel Payment
-                </button>
+                />
+                <span style={{ color: "var(--muted)", fontSize: 12, marginTop: 4, display: "block" }}>
+                  Registration is confirmed only after entering the completed payment reference.
+                </span>
               </div>
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  maxWidth: 520,
+                  margin: "0 auto 16px",
+                  padding: "12px 16px",
+                  background: "rgba(255,77,77,0.1)",
+                  border: "1px solid rgba(255,77,77,0.3)",
+                  color: "#ff6b6b",
+                  fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div style={{ maxWidth: 520, margin: "0 auto" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleFinalSubmit}
+                disabled={loading || !transactionId.trim()}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  background: "#c8ff00",
+                  color: "#000",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  opacity: !transactionId.trim() ? 0.6 : 1,
+                }}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    Submitting Registration & Payment...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={20} />
+                    Complete Registration (₹{total})
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -646,14 +675,14 @@ export default function RegisterPage() {
         style={{
           maxWidth: 1521,
           margin: "0 auto",
-          padding: "24px 48px 80px",
+          padding: "24px 32px 80px",
           borderTop: "1px solid var(--border)",
           textAlign: "center",
           color: "var(--muted)",
           fontSize: 13,
         }}
       >
-        Drone Soccer SRM AP · Official League Registration with Automated Razorpay Verification.
+        Drone Soccer SRM AP · Official League Registration with UPI QR Payment.
       </footer>
     </div>
   );

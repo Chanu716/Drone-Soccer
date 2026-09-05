@@ -3,20 +3,16 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
-  Zap,
   CheckCircle2,
   Clock,
   AlertCircle,
   Search,
   Download,
   RefreshCw,
-  ExternalLink,
   ChevronRight,
   X,
   CreditCard,
-  DollarSign,
-  UserCheck,
+  QrCode,
   RotateCcw,
 } from "lucide-react";
 
@@ -34,8 +30,6 @@ interface PaymentRecord {
   status: "created" | "pending" | "paid" | "failed" | "refunded";
   method: string | null;
   razorpay_payment_id?: string | null;
-  razorpay_order_id?: string | null;
-  razorpay_signature?: string | null;
   transaction_id?: string | null;
   paid_at?: string | null;
   created_at: string;
@@ -55,7 +49,6 @@ interface TeamRegistration {
   expectedAmount: number;
   paidAmount: number;
   derivedPaymentStatus: "paid" | "pending" | "failed" | "refunded";
-  isAutoVerified?: boolean;
   created_at: string;
   admin_notes?: string | null;
   team_members?: Pilot[];
@@ -94,26 +87,22 @@ export default function AdminRegistrationsPage() {
     failedPaymentsCount: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "auto_verified" | "pending_payment" | "rejected">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "paid" | "pending" | "rejected">("all");
   const [search, setSearch] = useState("");
-  const [selectedTeam, setSelectedTeam] = useState<TeamRegistration | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   // Modals
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [adminNoteInput, setAdminNoteInput] = useState("");
-  const [recordPaymentModalOpen, setRecordPaymentModalOpen] = useState(false);
-  const [manualAmount, setManualAmount] = useState("100");
-  const [manualMethod, setManualMethod] = useState("razorpay");
-  const [manualTxId, setManualTxId] = useState("");
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Fixed: loadData has empty dependencies to prevent re-triggering and closing/opening loops
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -122,10 +111,6 @@ export default function AdminRegistrationsPage() {
       if (res.ok) {
         setTeams(data.teams || []);
         if (data.stats) setStats(data.stats);
-        if (selectedTeam) {
-          const updatedSelected = (data.teams || []).find((t: TeamRegistration) => t.id === selectedTeam.id);
-          if (updatedSelected) setSelectedTeam(updatedSelected);
-        }
       } else {
         showToast(data.error || "Failed to load registrations", "error");
       }
@@ -134,20 +119,26 @@ export default function AdminRegistrationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam]);
+  }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Tab & Search filtered list
+  // Derived selected team
+  const selectedTeam = useMemo(() => {
+    if (!selectedTeamId) return null;
+    return teams.find((t) => t.id === selectedTeamId) || null;
+  }, [teams, selectedTeamId]);
+
+  // Filtered list
   const filteredTeams = useMemo(() => {
     return teams.filter((team) => {
       // Tab filter
-      if (activeTab === "auto_verified" && team.derivedPaymentStatus !== "paid" && team.status !== "approved") {
+      if (activeTab === "paid" && team.derivedPaymentStatus !== "paid" && team.status !== "approved") {
         return false;
       }
-      if (activeTab === "pending_payment" && (team.derivedPaymentStatus === "paid" || team.status === "approved")) {
+      if (activeTab === "pending" && (team.derivedPaymentStatus === "paid" || team.status === "approved")) {
         return false;
       }
       if (activeTab === "rejected" && team.status !== "rejected" && team.status !== "cancelled") {
@@ -164,10 +155,10 @@ export default function AdminRegistrationsPage() {
         const txMatch = team.payments?.some(
           (p) =>
             p.transaction_id?.toLowerCase().includes(q) ||
-            p.razorpay_payment_id?.toLowerCase().includes(q) ||
-            p.razorpay_order_id?.toLowerCase().includes(q)
+            p.razorpay_payment_id?.toLowerCase().includes(q)
         );
-        if (!teamMatch && !captainMatch && !emailMatch && !regMatch && !txMatch) return false;
+        const utrMatch = team.admin_notes?.toLowerCase().includes(q);
+        if (!teamMatch && !captainMatch && !emailMatch && !regMatch && !txMatch && !utrMatch) return false;
       }
 
       return true;
@@ -197,65 +188,6 @@ export default function AdminRegistrationsPage() {
       await loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error updating status";
-      showToast(msg, "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Record Payment / Override
-  const recordPayment = async () => {
-    if (!selectedTeam) return;
-    try {
-      setActionLoading(true);
-      const res = await fetch("/api/admin/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teamId: selectedTeam.id,
-          amountPaise: Math.round(parseFloat(manualAmount) * 100),
-          method: manualMethod,
-          transactionId: manualTxId,
-          status: "paid",
-          notes: "Recorded by Admin",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to record payment");
-
-      showToast("Payment recorded & team marked as verified");
-      setRecordPaymentModalOpen(false);
-      setManualTxId("");
-      await loadData();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error recording payment";
-      showToast(msg, "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Issue Refund Action
-  const handleRefund = async (paymentId: string) => {
-    if (!confirm("Are you sure you want to refund this payment? The team will be disqualified.")) return;
-    try {
-      setActionLoading(true);
-      const res = await fetch("/api/admin/payments", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "refund",
-          paymentId,
-          notes: "Refunded by admin",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to process refund");
-
-      showToast("Payment refunded successfully");
-      await loadData();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error processing refund";
       showToast(msg, "error");
     } finally {
       setActionLoading(false);
@@ -296,7 +228,7 @@ export default function AdminRegistrationsPage() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "rgba(18,21,14,0.8)",
+          background: "rgba(18,21,14,0.85)",
           backdropFilter: "blur(12px)",
           position: "sticky",
           top: 0,
@@ -320,7 +252,7 @@ export default function AdminRegistrationsPage() {
           </Link>
           <span style={{ color: "var(--border)" }}>|</span>
           <span className="tag" style={{ background: "rgba(200,255,0,0.1)", color: "#c8ff00", border: "1px solid #c8ff00" }}>
-            <Zap size={12} style={{ display: "inline", marginRight: 4 }} /> Razorpay Auto-Verify Active
+            <QrCode size={12} style={{ display: "inline", marginRight: 4 }} /> UPI QR Payments
           </span>
         </div>
 
@@ -334,6 +266,7 @@ export default function AdminRegistrationsPage() {
             <Download size={14} /> Export CSV
           </Link>
           <button
+            type="button"
             onClick={() => loadData()}
             disabled={loading}
             className="btn btn-secondary"
@@ -348,13 +281,13 @@ export default function AdminRegistrationsPage() {
       </header>
 
       <main style={{ maxWidth: 1521, margin: "0 auto", padding: "40px 48px 100px" }}>
-        {/* Page Title & Automated Overview Banner */}
+        {/* Page Title & Overview */}
         <div style={{ marginBottom: 32 }}>
-          <h1 className="h1" style={{ fontSize: 38, margin: "0 0 8px" }}>
+          <h1 className="h1" style={{ fontSize: 36, margin: "0 0 8px" }}>
             Registrations & Payment Management
           </h1>
           <p style={{ color: "var(--muted)", margin: 0, fontSize: 15, maxWidth: "75ch" }}>
-            Real-time Razorpay telemetry and automated team verification. When participants pay the registration fee, cryptographic signatures (HMAC-SHA256) are validated automatically and teams are instantly approved without manual UTR checking.
+            Live roster tracking and UPI QR payment records. Teams register and submit their payment reference to automatically enter the tournament.
           </p>
         </div>
 
@@ -375,10 +308,10 @@ export default function AdminRegistrationsPage() {
             <div className="data" style={{ fontSize: 36, fontWeight: 900 }}>
               {stats.totalRegistrations}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Registered participant rosters</div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Registered rosters</div>
           </div>
 
-          {/* Card 2: Auto-Verified & Approved (Razorpay) */}
+          {/* Card 2: Confirmed & Paid */}
           <div
             className="card cine"
             style={{
@@ -389,17 +322,17 @@ export default function AdminRegistrationsPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ color: "#c8ff00", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700 }}>
-                Auto-Verified & Approved
+                Confirmed & Paid
               </div>
-              <ShieldCheck size={16} color="#c8ff00" />
+              <CheckCircle2 size={16} color="#c8ff00" />
             </div>
             <div className="data" style={{ fontSize: 36, fontWeight: 900, color: "#c8ff00" }}>
               {stats.confirmedCount}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>100% verified via Razorpay</div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Active tournament teams</div>
           </div>
 
-          {/* Card 3: Pending Checkout / Unpaid */}
+          {/* Card 3: Pending */}
           <div className="card cine" style={{ padding: "20px 24px" }}>
             <div style={{ color: "var(--muted)", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
               Pending Payment
@@ -407,18 +340,18 @@ export default function AdminRegistrationsPage() {
             <div className="data" style={{ fontSize: 36, fontWeight: 900, color: stats.pendingCount > 0 ? "#ffd166" : "var(--text)" }}>
               {stats.pendingCount}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Rosters awaiting checkout</div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Awaiting completion</div>
           </div>
 
           {/* Card 4: Rejected / Disqualified */}
           <div className="card cine" style={{ padding: "20px 24px" }}>
             <div style={{ color: "var(--muted)", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-              Rejected / Disqualified
+              Rejected
             </div>
             <div className="data" style={{ fontSize: 36, fontWeight: 900, color: stats.rejectedCount > 0 ? "#ff6b6b" : "var(--muted)" }}>
               {stats.rejectedCount}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Rosters flagged or refunded</div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Flagged rosters</div>
           </div>
 
           {/* Card 5: Revenue Collected */}
@@ -436,7 +369,7 @@ export default function AdminRegistrationsPage() {
               ₹{stats.receivedRevenue.toLocaleString()}
             </div>
             <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
-              of ₹{stats.expectedRevenue.toLocaleString()} expected total
+              Total confirmed UPI fees
             </div>
           </div>
         </div>
@@ -455,6 +388,7 @@ export default function AdminRegistrationsPage() {
           {/* Tabs */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
+              type="button"
               onClick={() => setActiveTab("all")}
               className="btn"
               style={{
@@ -469,34 +403,37 @@ export default function AdminRegistrationsPage() {
               All Teams ({stats.totalRegistrations})
             </button>
             <button
-              onClick={() => setActiveTab("auto_verified")}
+              type="button"
+              onClick={() => setActiveTab("paid")}
               className="btn"
               style={{
-                background: activeTab === "auto_verified" ? "#c8ff00" : "rgba(255,255,255,0.03)",
-                color: activeTab === "auto_verified" ? "#000" : "var(--text)",
+                background: activeTab === "paid" ? "#c8ff00" : "rgba(255,255,255,0.03)",
+                color: activeTab === "paid" ? "#000" : "var(--text)",
                 border: "1px solid var(--border)",
                 padding: "8px 16px",
                 fontSize: 13,
-                fontWeight: activeTab === "auto_verified" ? 700 : 500,
+                fontWeight: activeTab === "paid" ? 700 : 500,
               }}
             >
-              Auto-Verified & Approved ({stats.confirmedCount})
+              Confirmed & Paid ({stats.confirmedCount})
             </button>
             <button
-              onClick={() => setActiveTab("pending_payment")}
+              type="button"
+              onClick={() => setActiveTab("pending")}
               className="btn"
               style={{
-                background: activeTab === "pending_payment" ? "#c8ff00" : "rgba(255,255,255,0.03)",
-                color: activeTab === "pending_payment" ? "#000" : "var(--text)",
+                background: activeTab === "pending" ? "#c8ff00" : "rgba(255,255,255,0.03)",
+                color: activeTab === "pending" ? "#000" : "var(--text)",
                 border: "1px solid var(--border)",
                 padding: "8px 16px",
                 fontSize: 13,
-                fontWeight: activeTab === "pending_payment" ? 700 : 500,
+                fontWeight: activeTab === "pending" ? 700 : 500,
               }}
             >
-              Pending Payment ({stats.pendingCount})
+              Pending ({stats.pendingCount})
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("rejected")}
               className="btn"
               style={{
@@ -517,7 +454,7 @@ export default function AdminRegistrationsPage() {
             <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               type="text"
-              placeholder="Search team, captain, ID, pay_..."
+              placeholder="Search team, captain, UTR..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -542,7 +479,7 @@ export default function AdminRegistrationsPage() {
                   <th style={{ padding: "16px 20px" }}>Captain Details</th>
                   <th style={{ padding: "16px 20px" }}>Pilots</th>
                   <th style={{ padding: "16px 20px" }}>Fee / Add-on</th>
-                  <th style={{ padding: "16px 20px" }}>Payment & Telemetry</th>
+                  <th style={{ padding: "16px 20px" }}>Payment & UTR</th>
                   <th style={{ padding: "16px 20px" }}>Status</th>
                   <th style={{ padding: "16px 20px", textAlign: "right" }}>Action</th>
                 </tr>
@@ -558,15 +495,16 @@ export default function AdminRegistrationsPage() {
                   filteredTeams.map((team) => {
                     const latestPayment = (team.payments || [])[0];
                     const isPaid = team.derivedPaymentStatus === "paid" || team.status === "approved";
+                    const utr = latestPayment?.transaction_id || latestPayment?.razorpay_payment_id || (team.admin_notes?.includes("UTR:") ? team.admin_notes.replace("UPI UTR:", "").trim() : null);
 
                     return (
                       <tr
                         key={team.id}
-                        onClick={() => setSelectedTeam(team)}
+                        onClick={() => setSelectedTeamId(team.id)}
                         style={{
                           borderBottom: "1px solid var(--border)",
                           cursor: "pointer",
-                          background: selectedTeam?.id === team.id ? "rgba(200,255,0,0.05)" : "transparent",
+                          background: selectedTeamId === team.id ? "rgba(200,255,0,0.05)" : "transparent",
                           transition: "background 0.15s ease",
                         }}
                       >
@@ -602,7 +540,7 @@ export default function AdminRegistrationsPage() {
                           )}
                         </td>
 
-                        {/* Payment & Razorpay Telemetry */}
+                        {/* Payment & UTR */}
                         <td style={{ padding: "16px 20px" }}>
                           {isPaid ? (
                             <div>
@@ -620,11 +558,11 @@ export default function AdminRegistrationsPage() {
                                   fontWeight: 700,
                                 }}
                               >
-                                <CheckCircle2 size={12} /> Auto-Verified (Razorpay)
+                                <CheckCircle2 size={12} /> Paid (UPI QR)
                               </span>
-                              {latestPayment?.razorpay_payment_id && (
+                              {utr && (
                                 <div className="data" style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                                  {latestPayment.razorpay_payment_id}
+                                  UTR: {utr}
                                 </div>
                               )}
                             </div>
@@ -632,7 +570,7 @@ export default function AdminRegistrationsPage() {
                             <span style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700 }}>Payment Failed</span>
                           ) : (
                             <span style={{ color: "#ffd166", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                              <Clock size={12} /> Awaiting Payment
+                              <Clock size={12} /> Pending Payment
                             </span>
                           )}
                         </td>
@@ -657,7 +595,7 @@ export default function AdminRegistrationsPage() {
                             className="btn btn-secondary"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedTeam(team);
+                              setSelectedTeamId(team.id);
                             }}
                             style={{ padding: "6px 12px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
                           >
@@ -685,7 +623,7 @@ export default function AdminRegistrationsPage() {
             display: "flex",
             justifyContent: "flex-end",
           }}
-          onClick={() => setSelectedTeam(null)}
+          onClick={() => setSelectedTeamId(null)}
         >
           <div
             style={{
@@ -712,66 +650,62 @@ export default function AdminRegistrationsPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedTeam(null)}
+                onClick={() => setSelectedTeamId(null)}
                 style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}
               >
                 <X size={24} />
               </button>
             </div>
 
-            {/* Automated Verification Telemetry Box */}
+            {/* Payment Information Card (Simple, clean, no manual verification box) */}
             <div
               style={{
                 background: selectedTeam.status === "approved" ? "rgba(200,255,0,0.04)" : "rgba(255,255,255,0.02)",
-                border: `1px solid ${selectedTeam.status === "approved" ? "#c8ff00" : "var(--border)"}`,
+                border: `1px solid ${selectedTeam.status === "approved" ? "rgba(200,255,0,0.3)" : "var(--border)"}`,
                 padding: 20,
                 marginBottom: 24,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <ShieldCheck size={18} color={selectedTeam.status === "approved" ? "#c8ff00" : "var(--muted)"} />
-                <h3 className="h3" style={{ margin: 0, fontSize: 16 }}>
-                  Razorpay Verification Telemetry
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 className="h3" style={{ margin: 0, fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <CreditCard size={18} color="#c8ff00" /> Payment Details
                 </h3>
+                <span
+                  style={{
+                    color: selectedTeam.status === "approved" ? "#c8ff00" : "#ffd166",
+                    fontWeight: 700,
+                    fontSize: 12,
+                  }}
+                >
+                  {selectedTeam.status === "approved" ? "Paid & Confirmed ✓" : "Pending"}
+                </span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
                 <div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Gateway Protocol</div>
-                  <div>Razorpay UPI / Cards</div>
-                </div>
-                <div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>HMAC Signature</div>
-                  <div style={{ color: selectedTeam.status === "approved" ? "#c8ff00" : "var(--muted)", fontWeight: 700 }}>
-                    {selectedTeam.status === "approved" ? "Verified (SHA-256) ✓" : "Awaiting Payment"}
+                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Amount</div>
+                  <div className="data" style={{ fontWeight: 700, fontSize: 16, color: "#c8ff00" }}>
+                    ₹{selectedTeam.expectedAmount}
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Payment ID</div>
-                  <div className="data" style={{ fontSize: 12 }}>
-                    {selectedTeam.payments?.[0]?.razorpay_payment_id || selectedTeam.payments?.[0]?.transaction_id || "None"}
+                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Method</div>
+                  <div>UPI QR</div>
+                </div>
+                <div style={{ gridColumn: "span 2" }}>
+                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>UPI Reference / UTR</div>
+                  <div className="data" style={{ fontSize: 13, color: "var(--text)", fontWeight: 700 }}>
+                    {selectedTeam.payments?.[0]?.transaction_id ||
+                      selectedTeam.payments?.[0]?.razorpay_payment_id ||
+                      (selectedTeam.admin_notes?.includes("UTR:")
+                        ? selectedTeam.admin_notes.replace("UPI UTR:", "").trim()
+                        : "Not recorded")}
                   </div>
                 </div>
-                <div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Order Reference</div>
-                  <div className="data" style={{ fontSize: 12 }}>
-                    {selectedTeam.payments?.[0]?.razorpay_order_id || "N/A"}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--muted)" }}>
-                {selectedTeam.status === "approved" ? (
-                  <span style={{ color: "#c8ff00" }}>
-                    ✓ Automatic approval: The team was automatically accepted into the league upon verified Razorpay payment capture. No manual intervention was required.
-                  </span>
-                ) : (
-                  <span>Awaiting payment from participant. Team will be automatically approved upon payment capture.</span>
-                )}
               </div>
             </div>
 
-            {/* Captain & Team Roster */}
+            {/* Captain & Team Contact */}
             <div style={{ marginBottom: 24 }}>
               <h3 className="h3" style={{ fontSize: 18, marginBottom: 12 }}>Captain & Contact</h3>
               <div style={{ background: "rgba(255,255,255,0.02)", padding: 16, border: "1px solid var(--border)", fontSize: 13 }}>
@@ -812,10 +746,10 @@ export default function AdminRegistrationsPage() {
               </div>
             </div>
 
-            {/* Admin Override Controls */}
+            {/* Admin Controls */}
             <div style={{ marginTop: "auto", paddingTop: 20, borderTop: "1px solid var(--border)" }}>
               <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Admin Controls & Exceptions
+                Team Status Controls
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {selectedTeam.status !== "approved" && (
@@ -826,7 +760,7 @@ export default function AdminRegistrationsPage() {
                     onClick={() => updateTeamStatus(selectedTeam.id, "approved")}
                     style={{ background: "#c8ff00", color: "#000", fontWeight: 700, padding: "10px 16px", fontSize: 13 }}
                   >
-                    Manual Override: Approve Team
+                    Mark as Approved
                   </button>
                 )}
 
@@ -839,29 +773,6 @@ export default function AdminRegistrationsPage() {
                     style={{ borderColor: "#ff4d4d", color: "#ff6b6b", padding: "10px 16px", fontSize: 13 }}
                   >
                     Reject / Disqualify
-                  </button>
-                )}
-
-                {selectedTeam.payments?.[0]?.status === "paid" && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={actionLoading}
-                    onClick={() => handleRefund(selectedTeam.payments![0].id)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", fontSize: 13 }}
-                  >
-                    <RotateCcw size={14} /> Issue Refund
-                  </button>
-                )}
-
-                {selectedTeam.derivedPaymentStatus !== "paid" && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setRecordPaymentModalOpen(true)}
-                    style={{ padding: "10px 16px", fontSize: 13 }}
-                  >
-                    + Record Cash / Venue Payment
                   </button>
                 )}
               </div>
@@ -919,82 +830,6 @@ export default function AdminRegistrationsPage() {
                 style={{ background: "#ff4d4d", color: "#fff", fontWeight: 700 }}
               >
                 Confirm Rejection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Record Manual Payment Modal */}
-      {recordPaymentModalOpen && selectedTeam && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.85)",
-            zIndex: 300,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-          }}
-        >
-          <div className="card cine" style={{ maxWidth: 480, width: "100%", padding: 32, background: "#161914" }}>
-            <h3 className="h3" style={{ margin: "0 0 12px" }}>Record Venue / Cash Payment</h3>
-            <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>
-              Record an offline or in-person cash payment for {selectedTeam.name}:
-            </p>
-            <div className="field">
-              <label>Amount (₹)</label>
-              <input
-                type="number"
-                value={manualAmount}
-                onChange={(e) => setManualAmount(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Method</label>
-              <select
-                value={manualMethod}
-                onChange={(e) => setManualMethod(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text)",
-                }}
-              >
-                <option value="cash">Cash at Venue</option>
-                <option value="venue_upi">Venue UPI QR</option>
-                <option value="razorpay">Razorpay Manual</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Reference / Receipt Note</label>
-              <input
-                type="text"
-                value={manualTxId}
-                onChange={(e) => setManualTxId(e.target.value)}
-                placeholder="e.g. Receipt #4092 or Cash Counter"
-              />
-            </div>
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setRecordPaymentModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={recordPayment}
-                disabled={actionLoading}
-                style={{ background: "#c8ff00", color: "#000", fontWeight: 700 }}
-              >
-                Save Payment & Approve
               </button>
             </div>
           </div>

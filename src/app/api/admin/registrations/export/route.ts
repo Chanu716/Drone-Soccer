@@ -75,7 +75,9 @@ export async function GET(req: NextRequest) {
 
       const latestPayment = payments[0] || {};
       const payStatus = paidAmount >= expectedAmount ? "PAID" : latestPayment.status ? latestPayment.status.toUpperCase() : "PENDING";
-      const txId = latestPayment.razorpay_payment_id || latestPayment.transaction_id || "N/A";
+      const utrFromTagline = team.tagline?.startsWith("UPI UTR:") ? team.tagline.replace("UPI UTR:", "").trim() : null;
+      const txId = latestPayment.razorpay_payment_id || latestPayment.transaction_id || utrFromTagline || "N/A";
+      const method = latestPayment.method === "venue_upi" ? "UPI QR" : latestPayment.method || (utrFromTagline ? "UPI QR" : "N/A");
 
       return [
         escapeCsv(regId),
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest) {
         expectedAmount,
         paidAmount,
         escapeCsv(payStatus),
-        escapeCsv(latestPayment.method || "N/A"),
+        escapeCsv(method),
         escapeCsv(txId),
         escapeCsv(new Date(team.created_at).toLocaleDateString("en-IN")),
       ].join(",");

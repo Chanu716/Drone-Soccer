@@ -135,8 +135,8 @@ export async function GET(req: NextRequest) {
         const emailMatch = t.captain_email.toLowerCase().includes(search);
         const regMatch = t.regNumber.toLowerCase().includes(search);
         const txMatch = t.payments?.some((p: any) => p.transaction_id?.toLowerCase().includes(search));
-        const orderMatch = t.payments?.some((p: any) => p.razorpay_order_id?.toLowerCase().includes(search));
-        return teamMatch || captainMatch || emailMatch || regMatch || txMatch || orderMatch;
+        const utrMatch = t.admin_notes?.toLowerCase().includes(search);
+        return teamMatch || captainMatch || emailMatch || regMatch || txMatch || utrMatch;
       });
     }
 
