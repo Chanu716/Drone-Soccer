@@ -1,4 +1,38 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+interface StandingRow {
+  team_id: string;
+  team_name: string;
+  team_slug: string;
+  captain_name: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goals_for: number;
+  goals_against: number;
+  goal_difference: number;
+  points: number;
+}
+
 export default function StandingsPage() {
+  const [standings, setStandings] = useState<StandingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/standings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.standings) {
+          setStandings(data.standings);
+        }
+      })
+      .catch((err) => console.error("Error loading standings:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div style={{ minHeight: "100vh", color: "var(--text)" }}>
       <main style={{ maxWidth: 1180, margin: "0 auto", padding: "160px 48px 120px" }}>
@@ -8,7 +42,7 @@ export default function StandingsPage() {
             Standings
           </h1>
           <p style={{ color: "var(--muted)", maxWidth: "56ch", margin: "0 auto" }}>
-            Updated after every match once the season starts.
+            Computed live from PostgreSQL match records and tiebreaker rules.
           </p>
         </div>
 
@@ -36,11 +70,34 @@ export default function StandingsPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colSpan={10} style={{ padding: "64px 32px", textAlign: "center", color: "var(--muted)" }}>
-                  No teams registered yet. Standings populate once the season begins in September.
-                </td>
-              </tr>
+              {loading ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: "64px 32px", textAlign: "center", color: "var(--muted)" }}>
+                    Loading standings from database...
+                  </td>
+                </tr>
+              ) : standings.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: "64px 32px", textAlign: "center", color: "var(--muted)" }}>
+                    No completed matches recorded yet. Standings will automatically calculate once matches are played.
+                  </td>
+                </tr>
+              ) : (
+                standings.map((row, idx) => (
+                  <tr key={row.team_id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "16px 32px", fontWeight: 700 }} className="data">{idx + 1}</td>
+                    <td style={{ fontWeight: 600 }}>{row.team_name}</td>
+                    <td className="data">{row.played}</td>
+                    <td className="data">{row.won}</td>
+                    <td className="data">{row.drawn}</td>
+                    <td className="data">{row.lost}</td>
+                    <td className="data">{row.goals_for}</td>
+                    <td className="data">{row.goals_against}</td>
+                    <td className="data">{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                    <td style={{ paddingRight: 32, fontWeight: 700, color: "var(--accent)" }} className="data">{row.points}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

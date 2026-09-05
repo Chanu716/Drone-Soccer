@@ -63,8 +63,12 @@ export default function TeamsPage() {
           />
         </div>
 
-        {/* Live teams list */}
-        {filteredTeams.length > 0 ? (
+        {/* Live teams list from Supabase */}
+        {loading ? (
+          <div className="card cine" style={{ textAlign: "center", padding: "64px 48px", marginBottom: 32 }}>
+            <p style={{ color: "var(--muted)", margin: 0 }}>Loading teams from database...</p>
+          </div>
+        ) : filteredTeams.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
             {filteredTeams.map((team) => {
               const initials = team.name
@@ -111,7 +115,7 @@ export default function TeamsPage() {
                       </span>
                     </div>
                     <div style={{ color: "var(--muted)", fontSize: 14, marginTop: 4 }}>
-                      Captain: {team.captain_name} · {pilots.length} pilots · 0 matches played
+                      Captain: {team.captain_name} ({team.captain_email}) · {pilots.length} pilots
                     </div>
                     {pilots.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
@@ -138,52 +142,11 @@ export default function TeamsPage() {
             })}
           </div>
         ) : (
-          !loading && (
-            <>
-              <div className="card cine" style={{ textAlign: "center", padding: "64px 48px", marginBottom: 32 }}>
-                <p style={{ color: "var(--muted)", margin: 0 }}>
-                  No teams registered yet. Rosters, captains and match records will appear here once teams sign up.
-                </p>
-              </div>
-
-              <div className="cine" style={{ textAlign: "center", marginBottom: 16 }}>
-                <span className="tag">Preview — how a team card will look</span>
-              </div>
-              <div
-                className="card cine"
-                style={{
-                  opacity: 0.55,
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr",
-                  gap: 24,
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    border: "1px solid var(--border)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: "var(--font-heading)",
-                    fontWeight: 700,
-                    fontSize: 24,
-                  }}
-                >
-                  FS
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 20 }}>Falcon Squadron</div>
-                  <div style={{ color: "var(--muted)", fontSize: 14, marginTop: 4 }}>
-                    Captain: Jane Doe · 5 pilots · 0 matches played
-                  </div>
-                </div>
-              </div>
-            </>
-          )
+          <div className="card cine" style={{ textAlign: "center", padding: "64px 48px", marginBottom: 32 }}>
+            <p style={{ color: "var(--muted)", margin: 0 }}>
+              No matching teams found in the database.
+            </p>
+          </div>
         )}
       </main>
 
