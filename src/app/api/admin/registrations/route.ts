@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get("status") || "all";
     const paymentFilter = searchParams.get("payment") || "all";
 
-    // 1. Fetch Teams with pilots and payments using baseline columns
+    // 1. Fetch Teams with pilots and payments
     const { data: teamsData, error: teamsError } = await (supabase.from("teams") as any)
       .select(`
         id,
@@ -58,7 +58,8 @@ export async function GET(req: NextRequest) {
     let pendingCount = 0;
     let rejectedCount = 0;
     let cancelledCount = 0;
-    let verificationRequiredCount = 0;
+    let autoVerifiedCount = 0;
+    let pendingPaymentCount = 0;
     let failedPaymentsCount = 0;
 
     const enrichedTeams = allTeams.map((team: any, index: number) => {
@@ -88,24 +89,24 @@ export async function GET(req: NextRequest) {
       const refundedAmount = refundedPayments.reduce((acc: number, p: any) => acc + (p.amount_paise / 100), 0);
       totalRefundedRevenue += refundedAmount;
 
-      const hasVerifReq = payments.some((p: any) => p.status === "created" || p.status === "verification_required");
-      if (hasVerifReq && paidAmount < expectedAmount && team.status !== "rejected") {
-        verificationRequiredCount++;
-      }
-
       const hasFailed = payments.some((p: any) => p.status === "failed");
       if (hasFailed) failedPaymentsCount++;
 
       // Primary payment status summary for the team
-      let derivedPaymentStatus: "paid" | "verification_required" | "pending" | "failed" | "refunded" = "pending";
-      if (paidAmount >= expectedAmount) {
+      let derivedPaymentStatus: "paid" | "pending" | "failed" | "refunded" = "pending";
+      let isAutoVerified = false;
+
+      if (paidAmount >= expectedAmount || team.status === "approved") {
         derivedPaymentStatus = "paid";
-      } else if (hasVerifReq) {
-        derivedPaymentStatus = "verification_required";
+        isAutoVerified = true;
+        autoVerifiedCount++;
       } else if (refundedAmount > 0) {
         derivedPaymentStatus = "refunded";
       } else if (hasFailed) {
         derivedPaymentStatus = "failed";
+      } else {
+        derivedPaymentStatus = "pending";
+        pendingPaymentCount++;
       }
 
       return {
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
         expectedAmount,
         paidAmount,
         derivedPaymentStatus,
+        isAutoVerified,
         payments,
         admin_notes: team.admin_notes || team.tagline || null,
       };
@@ -133,7 +135,8 @@ export async function GET(req: NextRequest) {
         const emailMatch = t.captain_email.toLowerCase().includes(search);
         const regMatch = t.regNumber.toLowerCase().includes(search);
         const txMatch = t.payments?.some((p: any) => p.transaction_id?.toLowerCase().includes(search));
-        return teamMatch || captainMatch || emailMatch || regMatch || txMatch;
+        const orderMatch = t.payments?.some((p: any) => p.razorpay_order_id?.toLowerCase().includes(search));
+        return teamMatch || captainMatch || emailMatch || regMatch || txMatch || orderMatch;
       });
     }
 
@@ -153,11 +156,12 @@ export async function GET(req: NextRequest) {
         pendingCount,
         rejectedCount,
         cancelledCount,
+        autoVerifiedCount,
+        pendingPaymentCount,
         expectedRevenue: totalExpectedRevenue,
         receivedRevenue: netReceived,
         pendingRevenue: pendingPaymentAmount,
         refundedRevenue: totalRefundedRevenue,
-        verificationRequiredCount,
         failedPaymentsCount,
       },
     });
