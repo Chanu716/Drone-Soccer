@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Clock,
@@ -14,6 +15,8 @@ import {
   CreditCard,
   QrCode,
   RotateCcw,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 interface Pilot {
@@ -92,6 +95,8 @@ export default function AdminRegistrationsPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const router = useRouter();
 
   // Modals
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -100,6 +105,27 @@ export default function AdminRegistrationsPage() {
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.isAdmin) {
+          setAdminEmail(data.user.email);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      router.push("/login");
+    }
   };
 
   // Fixed: loadData has empty dependencies to prevent re-triggering and closing/opening loops
@@ -256,12 +282,17 @@ export default function AdminRegistrationsPage() {
           </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {adminEmail && (
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
+              Admin: <strong style={{ color: "var(--text)" }}>{adminEmail}</strong>
+            </span>
+          )}
           <Link
             href="/admin/registrations/export"
             download
             className="btn btn-secondary"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", fontSize: 13 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 13 }}
           >
             <Download size={14} /> Export CSV
           </Link>
@@ -270,13 +301,21 @@ export default function AdminRegistrationsPage() {
             onClick={() => loadData()}
             disabled={loading}
             className="btn btn-secondary"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", fontSize: 13 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 13 }}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
-          <Link href="/teams" className="btn btn-secondary" style={{ padding: "8px 16px", fontSize: 13 }}>
-            Public Teams View →
+          <Link href="/teams" className="btn btn-secondary" style={{ padding: "8px 14px", fontSize: 13 }}>
+            Teams View →
           </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="btn btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, borderColor: "#ff4d4d", color: "#ff6b6b" }}
+          >
+            <LogOut size={14} /> Sign Out
+          </button>
         </div>
       </header>
 

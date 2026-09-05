@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [captainName, setCaptainName] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [pilots, setPilots] = useState([
     { name: "", role: "Striker" },
     { name: "", role: "Defender" },
@@ -83,6 +84,10 @@ export default function RegisterPage() {
       setError("Please enter team name, captain name, and captain email.");
       return;
     }
+    if (!password || password.length < 6) {
+      setError("Please create an account password with at least 6 characters.");
+      return;
+    }
     if (pilots.some((p) => !p.name.trim())) {
       setError("Every pilot in the roster must have a valid name.");
       return;
@@ -110,6 +115,7 @@ export default function RegisterPage() {
           captainName: captainName.trim(),
           captainPhone: captainPhone.trim(),
           captainEmail: captainEmail.trim(),
+          password,
           pilots,
           training,
           transactionId: transactionId.trim().toUpperCase(),
@@ -250,11 +256,18 @@ export default function RegisterPage() {
 
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/teams"
+                href="/login"
                 className="btn btn-primary"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
               >
-                View Registered Teams <ArrowRight size={16} />
+                Sign In to Team Dashboard <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/teams"
+                className="btn btn-secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                View Registered Teams
               </Link>
               <button type="button" className="btn btn-secondary" onClick={handleReset}>
                 Register Another Team
@@ -305,15 +318,27 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="field">
-              <label>Captain Email *</label>
-              <input
-                type="email"
-                value={captainEmail}
-                onChange={(e) => setCaptainEmail(e.target.value)}
-                placeholder="name@srmap.edu.in"
-                disabled={loading}
-              />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
+              <div className="field">
+                <label>Captain Email *</label>
+                <input
+                  type="email"
+                  value={captainEmail}
+                  onChange={(e) => setCaptainEmail(e.target.value)}
+                  placeholder="name@srmap.edu.in"
+                  disabled={loading}
+                />
+              </div>
+              <div className="field">
+                <label>Account Password (for Dashboard Login) *</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div

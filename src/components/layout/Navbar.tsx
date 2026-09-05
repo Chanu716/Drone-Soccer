@@ -118,20 +118,16 @@ export function Navbar() {
             Teams
           </Link>
           <Link
-            href="/admin/registrations"
+            href="/login"
             style={{
               fontFamily: "var(--font-heading)",
               textTransform: "uppercase",
               fontSize: 13,
               letterSpacing: "0.08em",
-              color: pathname?.startsWith("/admin") ? "var(--accent)" : "var(--muted)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
+              color: pathname === "/login" || pathname?.startsWith("/dashboard") ? "var(--white)" : "var(--muted)",
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: pathname?.startsWith("/admin") ? "var(--accent)" : "var(--muted)" }} />
-            Admin
+            Sign In
           </Link>
           <Link
             href="/register"
@@ -225,7 +221,7 @@ export function Navbar() {
             Teams
           </Link>
           <Link
-            href="/admin/registrations"
+            href="/login"
             onClick={() => setMobileMenuOpen(false)}
             style={{
               fontFamily: "var(--font-heading)",
@@ -235,7 +231,7 @@ export function Navbar() {
               color: "var(--accent)",
             }}
           >
-            Admin (Registrations & Payments)
+            Sign In
           </Link>
           <Link
             href="/register"

@@ -5,11 +5,18 @@ import { isSupabaseConfigured } from "@/lib/supabase/client";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { teamName, captainName, captainPhone, captainEmail, pilots, training, transactionId } = body;
+    const { teamName, captainName, captainPhone, captainEmail, password, pilots, training, transactionId } = body;
 
     if (!teamName || !captainName || !captainEmail) {
       return NextResponse.json(
         { error: "Team name, captain name, and captain email are required." },
+        { status: 400 }
+      );
+    }
+
+    if (!password || password.length < 6) {
+      return NextResponse.json(
+        { error: "Please enter an account password with at least 6 characters." },
         { status: 400 }
       );
     }
@@ -28,6 +35,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const cleanEmail = captainEmail.trim().toLowerCase();
     const cleanUtr = transactionId.trim().toUpperCase();
     const totalFee = 100 + (training ? 100 : 0);
 
@@ -47,7 +55,7 @@ export async function POST(req: NextRequest) {
         data: {
           teamName,
           slug,
-          captainEmail,
+          captainEmail: cleanEmail,
           pilotCount: pilots.length,
           total: totalFee,
           transactionId: cleanUtr,
@@ -57,14 +65,58 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient();
 
-    // 1. Insert Team (automatically approved upon successful payment submission)
+    // 1. Provision or retrieve Captain User in Supabase Auth
+    let captainAuthId: string | null = null;
+    try {
+      const { data: newUser, error: createAuthError } = await supabase.auth.admin.createUser({
+        email: cleanEmail,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: captainName.trim(),
+        },
+      });
+
+      if (!createAuthError && newUser?.user) {
+        captainAuthId = newUser.user.id;
+      } else if (createAuthError?.message?.includes("already been registered")) {
+        // User already exists, fetch their ID
+        const { data: listData } = await supabase.auth.admin.listUsers();
+        const existing = listData?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
+        if (existing) {
+          captainAuthId = existing.id;
+          // Update password so they can log in with their newest password
+          await supabase.auth.admin.updateUserById(existing.id, { password });
+        }
+      }
+    } catch (authErr) {
+      console.warn("Could not create Supabase auth user:", authErr);
+    }
+
+    // 2. Upsert Captain into profiles table if auth user created
+    if (captainAuthId) {
+      try {
+        await (supabase.from("profiles") as any).upsert({
+          id: captainAuthId,
+          full_name: captainName.trim(),
+          email: cleanEmail,
+          phone: captainPhone?.trim() || null,
+          role: "captain",
+        });
+      } catch (profileErr) {
+        console.warn("Could not upsert profile:", profileErr);
+      }
+    }
+
+    // 3. Insert Team (automatically approved upon successful payment submission)
     const newTeamPayload = {
       name: teamName.trim(),
       slug: `${slug}-${Date.now().toString().slice(-4)}`,
       tagline: `UPI UTR: ${cleanUtr}`,
       captain_name: captainName.trim(),
-      captain_email: captainEmail.trim(),
+      captain_email: cleanEmail,
       captain_phone: captainPhone?.trim() || null,
+      captain_id: captainAuthId,
       training_addon: Boolean(training),
       status: "approved" as const,
     };
@@ -82,7 +134,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Insert Pilots into team_members
+    // 4. Insert Pilots into team_members
     const membersToInsert = pilots.map((p: { name: string; role?: string }, idx: number) => ({
       team_id: teamData.id,
       name: p.name.trim(),
@@ -101,7 +153,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Automatically record the payment as PAID
+    // 5. Automatically record the payment as PAID
     const paymentPayload = {
       team_id: teamData.id,
       purpose: "registration",
@@ -114,20 +166,15 @@ export async function POST(req: NextRequest) {
       paid_at: new Date().toISOString(),
     };
 
-    const { error: paymentError } = await (supabase.from("payments") as any)
-      .insert(paymentPayload);
-
-    if (paymentError) {
-      console.error("Supabase payment insert error:", paymentError);
-      // Even if payment insert fails, we log it, but team is registered
-    }
+    await (supabase.from("payments") as any).insert(paymentPayload);
 
     return NextResponse.json({
       success: true,
       team: teamData,
       transactionId: cleanUtr,
       amountPaid: totalFee,
-      message: "Team registration and UPI payment confirmed successfully.",
+      captainEmail: cleanEmail,
+      message: "Team registered and captain account created successfully.",
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
